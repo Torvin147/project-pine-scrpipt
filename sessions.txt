@@ -1,0 +1,424 @@
+//@version=5
+indicator(title="sessions", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=500)
+// 1215v
+
+show_session1 = input.bool(defval=true, title="", inline="1", group="session 1")
+show_session2 = input.bool(defval=true, title="", inline="2", group="session 2")
+show_session3 = input.bool(defval=true, title="", inline="3", group="session 3")
+show_session4 = input.bool(defval=true, title="", inline="4", group="session 4")
+
+session1_text = input.string(defval="ASIA", title="session 1:", inline="1", group="session 1")
+session2_text = input.string(defval="LOKZ", title="session 2:", inline="2", group="session 2")
+session3_text = input.string(defval="NYKZ", title="session 3:", inline="3", group="session 3")
+session4_text = input.string(defval="LCKZ", title="session 4:", inline="4", group="session 4")
+
+// var GMT = input.session(defval=0, title="GMT")
+var ao = input.session(defval="0000-0400", title="time", group="session 1")// для GMT = 0
+var lo = input.session(defval="0700-1100", title="time", group="session 2")
+var nyo = input.session(defval="1300-1600", title="time", group="session 3")
+var lc = input.session(defval="1800-2000", title="time", group="session 4")
+
+var indicator_format = input.string(defval="boxes", title="indicator format", options=["l&h", "verticals", "boxes", "backgroung"], tooltip ="В форматах l&h, verticals, boxes закрашивается сразу вся сессия, в background – график с начала сессии до текущего момента.",group="style")
+var line_width = input.int(defval=1, title="width", minval=0, group="style")
+var string line_style = input.string(defval ="solid", title = "line style", options = ["solid", "dotted", "dashed"], group="style")
+var histori = input.bool(defval=true, title="histori", group="style")
+var labels = input.bool(defval=true, title="labels", group="style")
+
+var color_ao = input.color(defval=color.blue, title="", inline="1", group="session 1")
+var color_lo = input.color(defval=color.red, title="", inline="2", group="session 2")
+var color_nyo = input.color(defval=color.green, title="", inline="3", group="session 3")
+var color_lc = input.color(defval=color.red, title="", inline="4", group="session 4")
+var color_0 = color.new(na, 100)
+
+var line l_ao = line.new(na, na, na, na, xloc=xloc.bar_time, color=color_ao, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)// в случае вертикальных l_... первая
+var line h_ao = line.new(na, na, na, na, xloc=xloc.bar_time, color=color_ao, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+var line l_lo = line.new(na, na, na, na, xloc=xloc.bar_time, color=color_lo, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+var line h_lo = line.new(na, na, na, na, xloc=xloc.bar_time, color=color_lo, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+var line l_nyo = line.new(na, na, na, na, xloc=xloc.bar_time, color=color_nyo, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+var line h_nyo = line.new(na, na, na, na, xloc=xloc.bar_time, color=color_nyo, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+var line l_lc = line.new(na, na, na, na, xloc=xloc.bar_time, color=color_lc, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+var line h_lc = line.new(na, na, na, na, xloc=xloc.bar_time, color=color_lc, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+var historical_line_ao = array.new_line(2, line.new(na, na, na, na))
+var historical_line_lo = array.new_line(2, line.new(na, na, na, na))
+var historical_line_nyo = array.new_line(2, line.new(na, na, na, na))
+var historical_line_lc = array.new_line(2, line.new(na, na, na, na))
+
+var box box_ao = box.new(na, na, na, na, border_color=color_ao, border_width=line_width, border_style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed, xloc=xloc.bar_time, bgcolor=color.new(color_ao, 90), text=labels?session1_text:"", text_color=color_ao, text_size=size.small, text_halign=text.align_right, text_valign=text.align_top)
+var box box_lo = box.new(na, na, na, na, border_color=color_lo, border_width=line_width, border_style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed, xloc=xloc.bar_time, bgcolor=color.new(color_lo, 90), text=labels?session2_text:"", text_color=color_lo, text_size=size.small, text_halign=text.align_right, text_valign=text.align_top)
+var box box_nyo = box.new(na, na, na, na, border_color=color_nyo, border_width=line_width, border_style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed, xloc=xloc.bar_time, bgcolor=color.new(color_nyo, 90), text=labels?session3_text:"", text_color=color_nyo, text_size=size.small, text_halign=text.align_right, text_valign=text.align_top)
+var box box_lc = box.new(na, na, na, na, border_color=color_lc, border_width=line_width, border_style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed, xloc=xloc.bar_time, bgcolor=color.new(color_lc, 90), text=labels?session4_text:"", text_color=color_lc, text_size=size.small, text_halign=text.align_right, text_valign=text.align_top)
+var historical_box_ao = array.new_box(2, box.new(na, na, na, na, border_color=color_ao, border_width=line_width, border_style=line.style_solid, xloc=xloc.bar_time, bgcolor=color.new(color_ao, 90), text="ASIA", text_color=color_ao, text_size=size.small, text_halign=text.align_right, text_valign=text.align_top))
+var historical_box_lo = array.new_box(2, box.new(na, na, na, na, border_color=color_ao, border_width=line_width, border_style=line.style_solid, xloc=xloc.bar_time, bgcolor=color.new(color_ao, 90), text="ASIA", text_color=color_ao, text_size=size.small, text_halign=text.align_right, text_valign=text.align_top))
+var historical_box_nyo = array.new_box(2, box.new(na, na, na, na, border_color=color_ao, border_width=line_width, border_style=line.style_solid, xloc=xloc.bar_time, bgcolor=color.new(color_ao, 90), text="ASIA", text_color=color_ao, text_size=size.small, text_halign=text.align_right, text_valign=text.align_top))
+var historical_box_lc = array.new_box(2, box.new(na, na, na, na, border_color=color_ao, border_width=line_width, border_style=line.style_solid, xloc=xloc.bar_time, bgcolor=color.new(color_ao, 90), text="ASIA", text_color=color_ao, text_size=size.small, text_halign=text.align_right, text_valign=text.align_top))
+
+var label label_ao = label.new(na, na, text=session1_text, xloc=xloc.bar_time, color=color_ao, style=label.style_none, textcolor=color_ao, size=size.small, textalign=text.align_center)
+var label label_lo = label.new( na, na, text=session2_text, xloc=xloc.bar_time, color=color_lo, style=label.style_none, textcolor=color_lo, size=size.small, textalign=text.align_center)
+var label label_nyo = label.new(na, na, text=session3_text, xloc=xloc.bar_time, color=color_nyo, style=label.style_none, textcolor=color_nyo, size=size.small, textalign=text.align_center)
+var label label_lc = label.new(na, na, text=session4_text, xloc=xloc.bar_time, color=color_lc, style=label.style_none, textcolor=color_lc, size=size.small, textalign=text.align_center)
+var historical_label_ao = array.new_label(na)
+var historical_label_lo = array.new_label(na)
+var historical_label_nyo = array.new_label(na)
+var historical_label_lc = array.new_label(na)
+k = 24
+var int tf = if bar_index==2// таймфрейм
+    time - time[1]
+var start_of_day = 0
+if hour==0 and hour[1]==23
+    start_of_day := time
+
+data_session(session) =>// начало(в ч и мин), конец(в ч и мин), длительность сессии(мин)
+    start_h = int(str.tonumber(str.substring(session, begin_pos=0, end_pos=2))) 
+    end_h = int(str.tonumber(str.substring(session, begin_pos=5, end_pos=7)))
+    start_min = int(str.tonumber(str.substring(session, begin_pos=2, end_pos=4)))
+    end_min = int(str.tonumber(str.substring(session, begin_pos=7, end_pos=9)))
+    period = if start_h*60+start_min<=end_h*60+end_min
+        int(end_h*60+end_min-start_h*60-start_min)
+    else
+        int((24-start_h)*60-start_min+end_h*60+end_min)
+    [start_min, end_min, start_h, end_h, period]
+
+[start_min_ao, end_min_ao, start_h_ao, end_h_ao, period_ao] = data_session(ao)
+[start_min_lo, end_min_lo, start_h_lo, end_h_lo, period_lo] = data_session(lo)
+[start_min_nyo, end_min_nyo, start_h_nyo, end_h_nyo, period_nyo] = data_session(nyo)
+[start_min_lc, end_min_lc, start_h_lc, end_h_lc, period_lc] = data_session(lc)
+
+
+
+
+l_h(show_session, histori, labels, historical_line, historical_label, l_, h_, label_, start_of_day, period_, start_h_, start_min_, end_h_, end_min_, color_, line_style, line_width, session_text) =>// для indicator_format=="l h"
+    if show_session
+        if time>=timestamp(year, month, dayofmonth, start_h_, start_min_) and time[1]<timestamp(year, month, dayofmonth, start_h_, start_min_)
+            if histori
+                array.unshift(historical_line, line.new(time, low, time+period_*60000, low, xloc=xloc.bar_time, color=color_, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width))
+                array.unshift(historical_line, line.new(time, high, time+period_*60000, high,xloc=xloc.bar_time, color=color_, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width))
+                if labels
+                    array.unshift(historical_label, label.new(time+period_*30000, high, text=session_text, xloc=xloc.bar_time, color=color_, style=label.style_none, textcolor=color_, size=size.small, textalign=text.align_center))
+            else
+                line.set_xy1(l_, time, low)
+                line.set_xy2(l_, time+period_*60000, low)
+                line.set_xy1(h_, time, high)
+                line.set_xy2(h_, time+period_*60000, high)
+                if labels
+                    label.set_xy(label_, time+period_*30000, high)
+
+        if (start_h_*60+start_min_<end_h_*60+end_min_ and time>=timestamp(year, month, dayofmonth, start_h_, start_min_) and time<=timestamp(year, month, dayofmonth, end_h_, end_min_)) or ((start_h_*60+start_min_>end_h_*60+end_min_ and time>=timestamp(year, month, dayofmonth, start_h_, start_min_) and time<=timestamp(year, month, dayofmonth)+86400000) or (start_h_*60+start_min_>end_h_*60+end_min_ and timestamp(year, month, dayofmonth, end_h_, end_min_)>=time))
+            if histori
+                if low<line.get_y1(array.get(historical_line, 1))
+                    line.set_y1(array.get(historical_line, 1), low)
+                    line.set_y2(array.get(historical_line, 1), low)
+                if high>line.get_y1(array.get(historical_line, 0))
+                    line.set_y1(array.get(historical_line, 0), high)
+                    line.set_y2(array.get(historical_line, 0), high)
+                    if labels
+                        label.set_y(array.get(historical_label, 0), high)
+            else
+                if low<line.get_y1(l_) 
+                    line.set_y1(l_, low)
+                    line.set_y2(l_, low)
+                if high>line.get_y1(h_)
+                    line.set_y1(h_, high)
+                    line.set_y2(h_, high)
+                    if labels
+                        label.set_y(label_, high)
+
+backgroung(show_session, histori, labels, label_, tf, start_h_, start_min_, color_, session_text) =>// лейблы для backgroung 
+    if show_session and ((minute==start_min_ and hour==start_h_) or (tf==3600000 and hour==start_h_))
+        if labels and histori
+            label.new(time+tf, high, text=session_text, xloc=xloc.bar_time, color=color_, style=label.style_none, textcolor=color_, size=size.small, textalign=text.align_center)
+        if labels and not histori
+            label.set_xy(label_, time+tf, high)
+
+verticals(show_session, histori, labels, tf, period_, start_h_, start_min_, end_h_, end_min_, l_, h_, label_, color_, session_text, line_style, line_width) =>// для indicator_format=="verticals"
+    if show_session
+        line.set_extend(l_, extend.both)
+        line.set_extend(h_, extend.both)
+        if ((minute==start_min_ and hour==start_h_) or (tf==3600000 and hour==start_h_)) and histori
+            line.new(time, low, time, high, xloc=xloc.bar_time, extend=extend.both, color=color_, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+            line.new(time+period_*60000, low, time+period_*60000, high, xloc=xloc.bar_time, extend=extend.both, color=color_, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+            if labels
+                label.new(time+tf, high, text=session_text, xloc=xloc.bar_time, color=color_, style=label.style_none, textcolor=color_, size=size.small, textalign=text.align_center)
+        if ((minute==start_min_ and hour==start_h_) or (tf==3600000 and hour==start_h_)) and not histori
+            line.set_xy1(l_, time, low)
+            line.set_xy2(l_, time, high)
+            line.set_xy1(h_, time+period_*60000, low)
+            line.set_xy2(h_, time+period_*60000, high)
+            if labels
+                label.set_xy(label_, time+tf, high)
+
+boxes(show_session, histori, labels, historical_box, box_, start_h_, start_min_, end_h_, end_min_, period_, color_, session_text, line_style) =>// для indicator_format=="boxes" 
+    if show_session
+        // if (minute==start_min_ and hour==start_h_) or (tf==3600000 and hour==start_h_)
+        if time>=timestamp(year, month, dayofmonth, start_h_, start_min_) and time[1]<timestamp(year, month, dayofmonth, start_h_, start_min_)
+            if histori
+                array.unshift(historical_box, box.new(
+                 time, high, 
+                 time+period_*60000, low, 
+                 border_color=color_,
+                 border_width=line_width,
+                 border_style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed, 
+                 xloc=xloc.bar_time,
+                 bgcolor=color.new(color_, 90),
+                 text=labels?session_text:"",
+                 text_color=color_,
+                 text_size=size.small,
+                 text_halign=text.align_right,
+                 text_valign=text.align_top))
+            else
+                box.set_left(box_, time)
+                box.set_top(box_, high)
+                box.set_right(box_, time+period_*60000)
+                box.set_bottom(box_, low)
+
+        if (start_h_*60+start_min_<end_h_*60+end_min_ and time>=timestamp(year, month, dayofmonth, start_h_, start_min_) and time<=timestamp(year, month, dayofmonth, end_h_, end_min_)) or ((start_h_*60+start_min_>end_h_*60+end_min_ and time>=timestamp(year, month, dayofmonth, start_h_, start_min_) and time<=timestamp(year, month, dayofmonth)+86400000) or (start_h_*60+start_min_>end_h_*60+end_min_ and timestamp(year, month, dayofmonth, end_h_, end_min_)>=time))
+            if histori
+                if low<box.get_bottom(array.get(historical_box, 0))
+                    box.set_bottom(array.get(historical_box, 0), low)
+                if high>box.get_top(array.get(historical_box, 0))
+                    box.set_top(array.get(historical_box, 0), high)
+            else
+                if low<box.get_bottom(box_)
+                    box.set_bottom(box_, low)
+                if high>box.get_top(box_)
+                    box.set_top(box_, high)
+
+if tf<=3600000
+    if indicator_format=="l&h"
+        l_h(show_session1, histori, labels, historical_line_ao, historical_label_ao, l_ao, h_ao, label_ao, start_of_day, period_ao, start_h_ao, start_min_ao, end_h_ao, end_min_ao, color_ao, line_style, line_width, session1_text)
+        l_h(show_session2, histori, labels, historical_line_lo, historical_label_lo, l_lo, h_lo, label_lo, start_of_day, period_lo, start_h_lo, start_min_lo, end_h_lo, end_min_lo, color_lo, line_style, line_width, session2_text)
+        l_h(show_session3, histori, labels, historical_line_nyo, historical_label_nyo, l_nyo, h_nyo, label_nyo, start_of_day, period_nyo, start_h_nyo, start_min_nyo, end_h_nyo, end_min_nyo, color_nyo, line_style, line_width, session3_text)
+        l_h(show_session4, histori, labels, historical_line_lc, historical_label_lc, l_lc, h_lc, label_lc, start_of_day, period_lc, start_h_lc, start_min_lc, end_h_lc, end_min_lc, color_lc, line_style, line_width, session4_text)
+    else if indicator_format=="backgroung"
+        backgroung(show_session1, histori, labels, label_ao, tf, start_h_ao, start_min_ao, color_ao, session1_text)
+        backgroung(show_session2, histori, labels, label_lo, tf, start_h_lo, start_min_lo, color_lo, session2_text)
+        backgroung(show_session3, histori, labels, label_nyo, tf, start_h_nyo, start_min_nyo, color_nyo, session3_text)
+        backgroung(show_session4, histori, labels, label_lc, tf, start_h_lc, start_min_lc, color_lc, session4_text) 
+    else if indicator_format=="verticals"
+        verticals(show_session1, histori, labels, tf, period_ao, start_h_ao, start_min_ao, end_h_ao, end_min_ao, l_ao, h_ao, label_ao, color_ao, session1_text, line_style, line_width)
+        verticals(show_session2, histori, labels, tf, period_lo, start_h_lo, start_min_lo, end_h_lo, end_min_lo, l_lo, h_lo, label_lo, color_lo, session2_text, line_style, line_width)
+        verticals(show_session3, histori, labels, tf, period_nyo, start_h_nyo, start_min_nyo, end_h_nyo, end_min_nyo, l_nyo, h_nyo, label_nyo, color_nyo, session3_text, line_style, line_width)
+        verticals(show_session4, histori, labels, tf, period_lc, start_h_lc, start_min_lc, end_h_lc, end_min_lc, l_lc, h_lc, label_lc, color_lc, session4_text, line_style, line_width)
+    else
+        boxes(show_session1, histori, labels, historical_box_ao, box_ao, start_h_ao, start_min_ao, end_h_ao, end_min_ao, period_ao, color_ao, session1_text,line_style)
+        boxes(show_session2, histori, labels, historical_box_lo, box_lo, start_h_lo, start_min_lo, end_h_lo, end_min_lo, period_lo, color_lo, session2_text,line_style)
+        boxes(show_session3, histori, labels, historical_box_nyo, box_nyo, start_h_nyo, start_min_nyo, end_h_nyo, end_min_nyo, period_nyo, color_nyo, session3_text,line_style)
+        boxes(show_session4, histori, labels, historical_box_lc, box_lc, start_h_lc, start_min_lc, end_h_lc, end_min_lc, period_lc, color_lc, session4_text,line_style)
+
+bgcolor(color=indicator_format=="backgroung" and show_session1 and tf<=3600000 and ((start_h_ao*60+start_min_ao<end_h_ao*60+end_min_ao and time>=timestamp(year, month, dayofmonth, start_h_ao, start_min_ao) and time<=timestamp(year, month, dayofmonth, end_h_ao, end_min_ao)) or ((start_h_ao*60+start_min_ao>end_h_ao*60+end_min_ao and time>=timestamp(year, month, dayofmonth, start_h_ao, start_min_ao) and time<=timestamp(year, month, dayofmonth)+86400000) or (start_h_ao*60+start_min_ao>end_h_ao*60+end_min_ao and timestamp(year, month, dayofmonth, end_h_ao, end_min_ao)>=time)))?color_ao:color_0, editable=true, title="backgroung")
+bgcolor(color=indicator_format=="backgroung" and show_session2 and tf<=3600000 and ((start_h_lo*60+start_min_lo<end_h_lo*60+end_min_lo and time>=timestamp(year, month, dayofmonth, start_h_lo, start_min_lo) and time<=timestamp(year, month, dayofmonth, end_h_lo, end_min_lo)) or ((start_h_lo*60+start_min_lo>end_h_lo*60+end_min_lo and time>=timestamp(year, month, dayofmonth, start_h_lo, start_min_lo) and time<=timestamp(year, month, dayofmonth)+86400000) or (start_h_lo*60+start_min_lo>end_h_lo*60+end_min_lo and timestamp(year, month, dayofmonth, end_h_lo, end_min_lo)>=time)))?color_lo:color_0, editable=true, title="backgroung")
+bgcolor(color=indicator_format=="backgroung" and show_session3 and tf<=3600000 and ((start_h_nyo*60+start_min_nyo<end_h_nyo*60+end_min_nyo and time>=timestamp(year, month, dayofmonth, start_h_nyo, start_min_nyo) and time<=timestamp(year, month, dayofmonth, end_h_nyo, end_min_nyo)) or ((start_h_nyo*60+start_min_nyo>end_h_nyo*60+end_min_nyo and time>=timestamp(year, month, dayofmonth, start_h_nyo, start_min_nyo) and time<=timestamp(year, month, dayofmonth)+86400000) or (start_h_nyo*60+start_min_nyo>end_h_nyo*60+end_min_nyo and timestamp(year, month, dayofmonth, end_h_nyo, end_min_nyo)>=time)))?color_nyo:color_0, editable=true, title="backgroung")
+bgcolor(color=indicator_format=="backgroung" and show_session4 and tf<=3600000 and ((start_h_lc*60+start_min_lc<end_h_lc*60+end_min_lc and time>=timestamp(year, month, dayofmonth, start_h_lc, start_min_lc) and time<=timestamp(year, month, dayofmonth, end_h_lc, end_min_lc)) or ((start_h_lo*60+start_min_lc>end_h_lc*60+end_min_lc and time>=timestamp(year, month, dayofmonth, start_h_lc, start_min_lc) and time<=timestamp(year, month, dayofmonth)+86400000) or (start_h_lc*60+start_min_lc>end_h_lc*60+end_min_lc and timestamp(year, month, dayofmonth, end_h_lc, end_min_lc)>=time)))?color_lc:color_0, editable=true, title="backgroung")
+
+
+//@version=5
+indicator(title="sessions", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=500)
+// 1215v
+
+show_session1 = input.bool(defval=true, title="", inline="1", group="session 1")
+show_session2 = input.bool(defval=true, title="", inline="2", group="session 2")
+show_session3 = input.bool(defval=true, title="", inline="3", group="session 3")
+show_session4 = input.bool(defval=true, title="", inline="4", group="session 4")
+
+session1_text = input.string(defval="ASIA", title="session 1:", inline="1", group="session 1")
+session2_text = input.string(defval="LOKZ", title="session 2:", inline="2", group="session 2")
+session3_text = input.string(defval="NYKZ", title="session 3:", inline="3", group="session 3")
+session4_text = input.string(defval="LCKZ", title="session 4:", inline="4", group="session 4")
+
+// var GMT = input.session(defval=0, title="GMT")
+var ao = input.session(defval="0000-0400", title="time", group="session 1")// для GMT = 0
+var lo = input.session(defval="0700-1100", title="time", group="session 2")
+var nyo = input.session(defval="1300-1600", title="time", group="session 3")
+var lc = input.session(defval="1800-2000", title="time", group="session 4")
+
+var indicator_format = input.string(defval="boxes", title="indicator format", options=["l&h", "verticals", "boxes", "backgroung"], tooltip ="В форматах l&h, verticals, boxes закрашивается сразу вся сессия, в background – график с начала сессии до текущего момента.",group="style")
+var line_width = input.int(defval=1, title="width", minval=0, group="style")
+var string line_style = input.string(defval ="solid", title = "line style", options = ["solid", "dotted", "dashed"], group="style")
+var histori = input.bool(defval=true, title="histori", group="style")
+var labels = input.bool(defval=true, title="labels", group="style")
+
+var color_ao = input.color(defval=color.blue, title="", inline="1", group="session 1")
+var color_lo = input.color(defval=color.red, title="", inline="2", group="session 2")
+var color_nyo = input.color(defval=color.green, title="", inline="3", group="session 3")
+var color_lc = input.color(defval=color.red, title="", inline="4", group="session 4")
+var color_0 = color.new(na, 100)
+
+var line l_ao = line.new(na, na, na, na, xloc=xloc.bar_time, color=color_ao, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)// в случае вертикальных l_... первая
+var line h_ao = line.new(na, na, na, na, xloc=xloc.bar_time, color=color_ao, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+var line l_lo = line.new(na, na, na, na, xloc=xloc.bar_time, color=color_lo, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+var line h_lo = line.new(na, na, na, na, xloc=xloc.bar_time, color=color_lo, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+var line l_nyo = line.new(na, na, na, na, xloc=xloc.bar_time, color=color_nyo, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+var line h_nyo = line.new(na, na, na, na, xloc=xloc.bar_time, color=color_nyo, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+var line l_lc = line.new(na, na, na, na, xloc=xloc.bar_time, color=color_lc, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+var line h_lc = line.new(na, na, na, na, xloc=xloc.bar_time, color=color_lc, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+var historical_line_ao = array.new_line(2, line.new(na, na, na, na))
+var historical_line_lo = array.new_line(2, line.new(na, na, na, na))
+var historical_line_nyo = array.new_line(2, line.new(na, na, na, na))
+var historical_line_lc = array.new_line(2, line.new(na, na, na, na))
+
+var box box_ao = box.new(na, na, na, na, border_color=color_ao, border_width=line_width, border_style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed, xloc=xloc.bar_time, bgcolor=color.new(color_ao, 90), text=labels?session1_text:"", text_color=color_ao, text_size=size.small, text_halign=text.align_right, text_valign=text.align_top)
+var box box_lo = box.new(na, na, na, na, border_color=color_lo, border_width=line_width, border_style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed, xloc=xloc.bar_time, bgcolor=color.new(color_lo, 90), text=labels?session2_text:"", text_color=color_lo, text_size=size.small, text_halign=text.align_right, text_valign=text.align_top)
+var box box_nyo = box.new(na, na, na, na, border_color=color_nyo, border_width=line_width, border_style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed, xloc=xloc.bar_time, bgcolor=color.new(color_nyo, 90), text=labels?session3_text:"", text_color=color_nyo, text_size=size.small, text_halign=text.align_right, text_valign=text.align_top)
+var box box_lc = box.new(na, na, na, na, border_color=color_lc, border_width=line_width, border_style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed, xloc=xloc.bar_time, bgcolor=color.new(color_lc, 90), text=labels?session4_text:"", text_color=color_lc, text_size=size.small, text_halign=text.align_right, text_valign=text.align_top)
+var historical_box_ao = array.new_box(2, box.new(na, na, na, na, border_color=color_ao, border_width=line_width, border_style=line.style_solid, xloc=xloc.bar_time, bgcolor=color.new(color_ao, 90), text="ASIA", text_color=color_ao, text_size=size.small, text_halign=text.align_right, text_valign=text.align_top))
+var historical_box_lo = array.new_box(2, box.new(na, na, na, na, border_color=color_ao, border_width=line_width, border_style=line.style_solid, xloc=xloc.bar_time, bgcolor=color.new(color_ao, 90), text="ASIA", text_color=color_ao, text_size=size.small, text_halign=text.align_right, text_valign=text.align_top))
+var historical_box_nyo = array.new_box(2, box.new(na, na, na, na, border_color=color_ao, border_width=line_width, border_style=line.style_solid, xloc=xloc.bar_time, bgcolor=color.new(color_ao, 90), text="ASIA", text_color=color_ao, text_size=size.small, text_halign=text.align_right, text_valign=text.align_top))
+var historical_box_lc = array.new_box(2, box.new(na, na, na, na, border_color=color_ao, border_width=line_width, border_style=line.style_solid, xloc=xloc.bar_time, bgcolor=color.new(color_ao, 90), text="ASIA", text_color=color_ao, text_size=size.small, text_halign=text.align_right, text_valign=text.align_top))
+
+var label label_ao = label.new(na, na, text=session1_text, xloc=xloc.bar_time, color=color_ao, style=label.style_none, textcolor=color_ao, size=size.small, textalign=text.align_center)
+var label label_lo = label.new( na, na, text=session2_text, xloc=xloc.bar_time, color=color_lo, style=label.style_none, textcolor=color_lo, size=size.small, textalign=text.align_center)
+var label label_nyo = label.new(na, na, text=session3_text, xloc=xloc.bar_time, color=color_nyo, style=label.style_none, textcolor=color_nyo, size=size.small, textalign=text.align_center)
+var label label_lc = label.new(na, na, text=session4_text, xloc=xloc.bar_time, color=color_lc, style=label.style_none, textcolor=color_lc, size=size.small, textalign=text.align_center)
+var historical_label_ao = array.new_label(na)
+var historical_label_lo = array.new_label(na)
+var historical_label_nyo = array.new_label(na)
+var historical_label_lc = array.new_label(na)
+k = 24
+var int tf = if bar_index==2// таймфрейм
+    time - time[1]
+var start_of_day = 0
+if hour==0 and hour[1]==23
+    start_of_day := time
+
+data_session(session) =>// начало(в ч и мин), конец(в ч и мин), длительность сессии(мин)
+    start_h = int(str.tonumber(str.substring(session, begin_pos=0, end_pos=2))) 
+    end_h = int(str.tonumber(str.substring(session, begin_pos=5, end_pos=7)))
+    start_min = int(str.tonumber(str.substring(session, begin_pos=2, end_pos=4)))
+    end_min = int(str.tonumber(str.substring(session, begin_pos=7, end_pos=9)))
+    period = if start_h*60+start_min<=end_h*60+end_min
+        int(end_h*60+end_min-start_h*60-start_min)
+    else
+        int((24-start_h)*60-start_min+end_h*60+end_min)
+    [start_min, end_min, start_h, end_h, period]
+
+[start_min_ao, end_min_ao, start_h_ao, end_h_ao, period_ao] = data_session(ao)
+[start_min_lo, end_min_lo, start_h_lo, end_h_lo, period_lo] = data_session(lo)
+[start_min_nyo, end_min_nyo, start_h_nyo, end_h_nyo, period_nyo] = data_session(nyo)
+[start_min_lc, end_min_lc, start_h_lc, end_h_lc, period_lc] = data_session(lc)
+
+
+
+
+l_h(show_session, histori, labels, historical_line, historical_label, l_, h_, label_, start_of_day, period_, start_h_, start_min_, end_h_, end_min_, color_, line_style, line_width, session_text) =>// для indicator_format=="l h"
+    if show_session
+        if time>=timestamp(year, month, dayofmonth, start_h_, start_min_) and time[1]<timestamp(year, month, dayofmonth, start_h_, start_min_)
+            if histori
+                array.unshift(historical_line, line.new(time, low, time+period_*60000, low, xloc=xloc.bar_time, color=color_, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width))
+                array.unshift(historical_line, line.new(time, high, time+period_*60000, high,xloc=xloc.bar_time, color=color_, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width))
+                if labels
+                    array.unshift(historical_label, label.new(time+period_*30000, high, text=session_text, xloc=xloc.bar_time, color=color_, style=label.style_none, textcolor=color_, size=size.small, textalign=text.align_center))
+            else
+                line.set_xy1(l_, time, low)
+                line.set_xy2(l_, time+period_*60000, low)
+                line.set_xy1(h_, time, high)
+                line.set_xy2(h_, time+period_*60000, high)
+                if labels
+                    label.set_xy(label_, time+period_*30000, high)
+
+        if (start_h_*60+start_min_<end_h_*60+end_min_ and time>=timestamp(year, month, dayofmonth, start_h_, start_min_) and time<=timestamp(year, month, dayofmonth, end_h_, end_min_)) or ((start_h_*60+start_min_>end_h_*60+end_min_ and time>=timestamp(year, month, dayofmonth, start_h_, start_min_) and time<=timestamp(year, month, dayofmonth)+86400000) or (start_h_*60+start_min_>end_h_*60+end_min_ and timestamp(year, month, dayofmonth, end_h_, end_min_)>=time))
+            if histori
+                if low<line.get_y1(array.get(historical_line, 1))
+                    line.set_y1(array.get(historical_line, 1), low)
+                    line.set_y2(array.get(historical_line, 1), low)
+                if high>line.get_y1(array.get(historical_line, 0))
+                    line.set_y1(array.get(historical_line, 0), high)
+                    line.set_y2(array.get(historical_line, 0), high)
+                    if labels
+                        label.set_y(array.get(historical_label, 0), high)
+            else
+                if low<line.get_y1(l_) 
+                    line.set_y1(l_, low)
+                    line.set_y2(l_, low)
+                if high>line.get_y1(h_)
+                    line.set_y1(h_, high)
+                    line.set_y2(h_, high)
+                    if labels
+                        label.set_y(label_, high)
+
+backgroung(show_session, histori, labels, label_, tf, start_h_, start_min_, color_, session_text) =>// лейблы для backgroung 
+    if show_session and ((minute==start_min_ and hour==start_h_) or (tf==3600000 and hour==start_h_))
+        if labels and histori
+            label.new(time+tf, high, text=session_text, xloc=xloc.bar_time, color=color_, style=label.style_none, textcolor=color_, size=size.small, textalign=text.align_center)
+        if labels and not histori
+            label.set_xy(label_, time+tf, high)
+
+verticals(show_session, histori, labels, tf, period_, start_h_, start_min_, end_h_, end_min_, l_, h_, label_, color_, session_text, line_style, line_width) =>// для indicator_format=="verticals"
+    if show_session
+        line.set_extend(l_, extend.both)
+        line.set_extend(h_, extend.both)
+        if ((minute==start_min_ and hour==start_h_) or (tf==3600000 and hour==start_h_)) and histori
+            line.new(time, low, time, high, xloc=xloc.bar_time, extend=extend.both, color=color_, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+            line.new(time+period_*60000, low, time+period_*60000, high, xloc=xloc.bar_time, extend=extend.both, color=color_, style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed,width=line_width)
+            if labels
+                label.new(time+tf, high, text=session_text, xloc=xloc.bar_time, color=color_, style=label.style_none, textcolor=color_, size=size.small, textalign=text.align_center)
+        if ((minute==start_min_ and hour==start_h_) or (tf==3600000 and hour==start_h_)) and not histori
+            line.set_xy1(l_, time, low)
+            line.set_xy2(l_, time, high)
+            line.set_xy1(h_, time+period_*60000, low)
+            line.set_xy2(h_, time+period_*60000, high)
+            if labels
+                label.set_xy(label_, time+tf, high)
+
+boxes(show_session, histori, labels, historical_box, box_, start_h_, start_min_, end_h_, end_min_, period_, color_, session_text, line_style) =>// для indicator_format=="boxes" 
+    if show_session
+        // if (minute==start_min_ and hour==start_h_) or (tf==3600000 and hour==start_h_)
+        if time>=timestamp(year, month, dayofmonth, start_h_, start_min_) and time[1]<timestamp(year, month, dayofmonth, start_h_, start_min_)
+            if histori
+                array.unshift(historical_box, box.new(
+                 time, high, 
+                 time+period_*60000, low, 
+                 border_color=color_,
+                 border_width=line_width,
+                 border_style=line_style=="solid"?line.style_solid:line_style=="dotted"?line.style_dotted:line.style_dashed, 
+                 xloc=xloc.bar_time,
+                 bgcolor=color.new(color_, 90),
+                 text=labels?session_text:"",
+                 text_color=color_,
+                 text_size=size.small,
+                 text_halign=text.align_right,
+                 text_valign=text.align_top))
+            else
+                box.set_left(box_, time)
+                box.set_top(box_, high)
+                box.set_right(box_, time+period_*60000)
+                box.set_bottom(box_, low)
+
+        if (start_h_*60+start_min_<end_h_*60+end_min_ and time>=timestamp(year, month, dayofmonth, start_h_, start_min_) and time<=timestamp(year, month, dayofmonth, end_h_, end_min_)) or ((start_h_*60+start_min_>end_h_*60+end_min_ and time>=timestamp(year, month, dayofmonth, start_h_, start_min_) and time<=timestamp(year, month, dayofmonth)+86400000) or (start_h_*60+start_min_>end_h_*60+end_min_ and timestamp(year, month, dayofmonth, end_h_, end_min_)>=time))
+            if histori
+                if low<box.get_bottom(array.get(historical_box, 0))
+                    box.set_bottom(array.get(historical_box, 0), low)
+                if high>box.get_top(array.get(historical_box, 0))
+                    box.set_top(array.get(historical_box, 0), high)
+            else
+                if low<box.get_bottom(box_)
+                    box.set_bottom(box_, low)
+                if high>box.get_top(box_)
+                    box.set_top(box_, high)
+
+if tf<=3600000
+    if indicator_format=="l&h"
+        l_h(show_session1, histori, labels, historical_line_ao, historical_label_ao, l_ao, h_ao, label_ao, start_of_day, period_ao, start_h_ao, start_min_ao, end_h_ao, end_min_ao, color_ao, line_style, line_width, session1_text)
+        l_h(show_session2, histori, labels, historical_line_lo, historical_label_lo, l_lo, h_lo, label_lo, start_of_day, period_lo, start_h_lo, start_min_lo, end_h_lo, end_min_lo, color_lo, line_style, line_width, session2_text)
+        l_h(show_session3, histori, labels, historical_line_nyo, historical_label_nyo, l_nyo, h_nyo, label_nyo, start_of_day, period_nyo, start_h_nyo, start_min_nyo, end_h_nyo, end_min_nyo, color_nyo, line_style, line_width, session3_text)
+        l_h(show_session4, histori, labels, historical_line_lc, historical_label_lc, l_lc, h_lc, label_lc, start_of_day, period_lc, start_h_lc, start_min_lc, end_h_lc, end_min_lc, color_lc, line_style, line_width, session4_text)
+    else if indicator_format=="backgroung"
+        backgroung(show_session1, histori, labels, label_ao, tf, start_h_ao, start_min_ao, color_ao, session1_text)
+        backgroung(show_session2, histori, labels, label_lo, tf, start_h_lo, start_min_lo, color_lo, session2_text)
+        backgroung(show_session3, histori, labels, label_nyo, tf, start_h_nyo, start_min_nyo, color_nyo, session3_text)
+        backgroung(show_session4, histori, labels, label_lc, tf, start_h_lc, start_min_lc, color_lc, session4_text) 
+    else if indicator_format=="verticals"
+        verticals(show_session1, histori, labels, tf, period_ao, start_h_ao, start_min_ao, end_h_ao, end_min_ao, l_ao, h_ao, label_ao, color_ao, session1_text, line_style, line_width)
+        verticals(show_session2, histori, labels, tf, period_lo, start_h_lo, start_min_lo, end_h_lo, end_min_lo, l_lo, h_lo, label_lo, color_lo, session2_text, line_style, line_width)
+        verticals(show_session3, histori, labels, tf, period_nyo, start_h_nyo, start_min_nyo, end_h_nyo, end_min_nyo, l_nyo, h_nyo, label_nyo, color_nyo, session3_text, line_style, line_width)
+        verticals(show_session4, histori, labels, tf, period_lc, start_h_lc, start_min_lc, end_h_lc, end_min_lc, l_lc, h_lc, label_lc, color_lc, session4_text, line_style, line_width)
+    else
+        boxes(show_session1, histori, labels, historical_box_ao, box_ao, start_h_ao, start_min_ao, end_h_ao, end_min_ao, period_ao, color_ao, session1_text,line_style)
+        boxes(show_session2, histori, labels, historical_box_lo, box_lo, start_h_lo, start_min_lo, end_h_lo, end_min_lo, period_lo, color_lo, session2_text,line_style)
+        boxes(show_session3, histori, labels, historical_box_nyo, box_nyo, start_h_nyo, start_min_nyo, end_h_nyo, end_min_nyo, period_nyo, color_nyo, session3_text,line_style)
+        boxes(show_session4, histori, labels, historical_box_lc, box_lc, start_h_lc, start_min_lc, end_h_lc, end_min_lc, period_lc, color_lc, session4_text,line_style)
+
+bgcolor(color=indicator_format=="backgroung" and show_session1 and tf<=3600000 and ((start_h_ao*60+start_min_ao<end_h_ao*60+end_min_ao and time>=timestamp(year, month, dayofmonth, start_h_ao, start_min_ao) and time<=timestamp(year, month, dayofmonth, end_h_ao, end_min_ao)) or ((start_h_ao*60+start_min_ao>end_h_ao*60+end_min_ao and time>=timestamp(year, month, dayofmonth, start_h_ao, start_min_ao) and time<=timestamp(year, month, dayofmonth)+86400000) or (start_h_ao*60+start_min_ao>end_h_ao*60+end_min_ao and timestamp(year, month, dayofmonth, end_h_ao, end_min_ao)>=time)))?color_ao:color_0, editable=true, title="backgroung")
+bgcolor(color=indicator_format=="backgroung" and show_session2 and tf<=3600000 and ((start_h_lo*60+start_min_lo<end_h_lo*60+end_min_lo and time>=timestamp(year, month, dayofmonth, start_h_lo, start_min_lo) and time<=timestamp(year, month, dayofmonth, end_h_lo, end_min_lo)) or ((start_h_lo*60+start_min_lo>end_h_lo*60+end_min_lo and time>=timestamp(year, month, dayofmonth, start_h_lo, start_min_lo) and time<=timestamp(year, month, dayofmonth)+86400000) or (start_h_lo*60+start_min_lo>end_h_lo*60+end_min_lo and timestamp(year, month, dayofmonth, end_h_lo, end_min_lo)>=time)))?color_lo:color_0, editable=true, title="backgroung")
+bgcolor(color=indicator_format=="backgroung" and show_session3 and tf<=3600000 and ((start_h_nyo*60+start_min_nyo<end_h_nyo*60+end_min_nyo and time>=timestamp(year, month, dayofmonth, start_h_nyo, start_min_nyo) and time<=timestamp(year, month, dayofmonth, end_h_nyo, end_min_nyo)) or ((start_h_nyo*60+start_min_nyo>end_h_nyo*60+end_min_nyo and time>=timestamp(year, month, dayofmonth, start_h_nyo, start_min_nyo) and time<=timestamp(year, month, dayofmonth)+86400000) or (start_h_nyo*60+start_min_nyo>end_h_nyo*60+end_min_nyo and timestamp(year, month, dayofmonth, end_h_nyo, end_min_nyo)>=time)))?color_nyo:color_0, editable=true, title="backgroung")
+bgcolor(color=indicator_format=="backgroung" and show_session4 and tf<=3600000 and ((start_h_lc*60+start_min_lc<end_h_lc*60+end_min_lc and time>=timestamp(year, month, dayofmonth, start_h_lc, start_min_lc) and time<=timestamp(year, month, dayofmonth, end_h_lc, end_min_lc)) or ((start_h_lo*60+start_min_lc>end_h_lc*60+end_min_lc and time>=timestamp(year, month, dayofmonth, start_h_lc, start_min_lc) and time<=timestamp(year, month, dayofmonth)+86400000) or (start_h_lc*60+start_min_lc>end_h_lc*60+end_min_lc and timestamp(year, month, dayofmonth, end_h_lc, end_min_lc)>=time)))?color_lc:color_0, editable=true, title="backgroung")
+
+

@@ -1,0 +1,24 @@
+//@version=5
+
+indicator(title="fractals", overlay=true, max_lines_count=500, max_labels_count=500)
+
+var period = input.int(defval=3, title="period", minval=1, step=2)
+
+get_fractal(sourse_high=high, sourse_low=low, period) => // period - нечетное число
+    helper_high = true
+    helper_low = true
+    checker_index = int((period - 1) / 2)// индекс проверяемого значения
+    for i = 0 to period - 1
+        if i != checker_index
+            if sourse_high[checker_index] <= sourse_high[i]
+                helper_high := false
+            if sourse_low[checker_index] >= sourse_low[i]
+                helper_low := false
+    if helper_high
+        label.new(bar_index-checker_index, sourse_high[checker_index], color=color.black, style=label.style_triangledown, size=size.auto)
+    if helper_low
+        label.new(bar_index-checker_index, sourse_low[checker_index], color=color.black, style=label.style_triangleup, size=size.auto)
+
+get_fractal(period=period)
+
+

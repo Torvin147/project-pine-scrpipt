@@ -1,0 +1,243 @@
+//@version=5
+indicator(title="levels", shorttitle="levels", overlay=true, max_lines_count=500, max_labels_count=500)
+// v254
+
+var is_d = input.bool(defval=true, title="", inline="d", group="daily")
+var style_d = input.string(defval="solid", title="DL&DH", options=["solid", "dotted", "dashed"], inline="d", group="daily")
+var c_d = input.color(defval=color.black, title="", inline="d", group="daily")
+var labels_d = input.bool(defval=true, title="", inline="dl", group="daily")
+var size_d = input.string(defval="small", title="labels", options=["tiny", "small", "normal", "large", "huge", "auto"], inline="dl", group="daily")
+
+var is_pd = input.bool(defval=true, title="", inline="pd", group="previous daily")
+var style_pd = input.string(defval="solid", title="PDL&PDH", options=["solid", "dotted", "dashed"], inline="pd", group="previous daily")
+var c_pd = input.color(defval=color.black, title="", inline="pd", group="previous daily")
+var labels_pd = input.bool(defval=true, title="", inline="ld", group="previous daily")
+var size_pd = input.string(defval="small", title="labels", options=["tiny", "small", "normal", "large", "huge", "auto"], inline="ld", group="previous daily")
+
+var is_pw = input.bool(defval=true, title="", inline="pw", group="previous weekly")
+var style_pw = input.string(defval="solid", title="PWL&PWH", options=["solid", "dotted", "dashed"], inline="pw", group="previous weekly")
+var c_pw = input.color(defval=color.black, title="", inline="pw", group="previous weekly")
+var labels_pw = input.bool(defval=true, title="", inline="lpw", group="previous weekly")
+var size_pw = input.string(defval="small", title="labels", options=["tiny", "small", "normal", "large", "huge", "auto"], inline="lpw", group="previous weekly")
+
+var is_pm = input.bool(defval=true, title="", inline="pm", group="previous monthly")
+var style_pm = input.string(defval="solid", title="PMH&PML", options=["solid", "dotted", "dashed"], inline="pm", group="previous monthly")
+var c_pm = input.color(defval=color.black, title="", inline="pm", group="previous monthly")
+var labels_pm = input.bool(defval=true, title="", inline="lpm", group="previous monthly")
+var size_pm = input.string(defval="small", title="labels", options=["tiny", "small", "normal", "large", "huge", "auto"], inline="lpm", group="previous monthly")
+
+var is_tdo = input.bool(defval=true, title="", inline="tdo", group="true daily open")
+var style_tdo = input.string(defval="solid", title="TDO", options=["solid", "dotted", "dashed"], inline="tdo", group="true daily open")
+var c_tdo = input.color(defval=color.black, title="", tooltip="Только для тф меньше либо равный 1h", inline="tdo", group="true daily open")
+var labels_tdo = input.bool(defval=true, title="", inline="ltdo", group="true daily open")
+var size_tdo = input.string(defval="small", title="labels", options=["tiny", "small", "normal", "large", "huge", "auto"], inline="ltdo", group="true daily open")
+var h_tdo = input.int(defval=4, title="TDO hour", minval=0, maxval=23, group="true daily open")
+
+var gmt = input.int(defval=0, title="your GMT", minval=-11, maxval=12, group="generals")
+var width = input.int(defval=1, title="weidth", minval=0,  group="generals")
+var extend = input.string(defval="none", title="extend", options=["none", "right", "both"], group="generals")
+var histori = input.bool(defval=false, title="histori", group="generals")
+
+var dh = line.new(na, na, na, na, xloc=xloc.bar_time, extend=extend=="none"?extend.none:extend=="right"?extend.right:extend.both, color=c_d, style=style_d=="solid"?line.style_solid:style_d=="dotted"?line.style_dotted:line.style_dashed, width=width)
+var dl = line.new(na, na, na, na, xloc=xloc.bar_time, extend=extend=="none"?extend.none:extend=="right"?extend.right:extend.both, color=c_d, style=style_d=="solid"?line.style_solid:style_d=="dotted"?line.style_dotted:line.style_dashed, width=width)
+var pdh = line.new(na, na, na, na, xloc=xloc.bar_time, extend=extend=="none"?extend.none:extend=="right"?extend.right:extend.both, color=c_pd, style=style_pd=="solid"?line.style_solid:style_pd=="dotted"?line.style_dotted:line.style_dashed, width=width)
+var pdl = line.new(na, na, na, na, xloc=xloc.bar_time, extend=extend=="none"?extend.none:extend=="right"?extend.right:extend.both, color=c_pd, style=style_pd=="solid"?line.style_solid:style_pd=="dotted"?line.style_dotted:line.style_dashed, width=width)
+var pwh = line.new(na, na, na, na, xloc=xloc.bar_time, extend=extend=="none"?extend.none:extend=="right"?extend.right:extend.both, color=c_pw, style=style_pw=="solid"?line.style_solid:style_pw=="dotted"?line.style_dotted:line.style_dashed, width=width)
+var pwl = line.new(na, na, na, na, xloc=xloc.bar_time, extend=extend=="none"?extend.none:extend=="right"?extend.right:extend.both, color=c_pw, style=style_pw=="solid"?line.style_solid:style_pw=="dotted"?line.style_dotted:line.style_dashed, width=width)
+var pmh = line.new(na, na, na, na, xloc=xloc.bar_time, extend=extend=="none"?extend.none:extend=="right"?extend.right:extend.both, color=c_pm, style=style_pm=="solid"?line.style_solid:style_pm=="dotted"?line.style_dotted:line.style_dashed, width=width)
+var pml = line.new(na, na, na, na, xloc=xloc.bar_time, extend=extend=="none"?extend.none:extend=="right"?extend.right:extend.both, color=c_pm, style=style_pm=="solid"?line.style_solid:style_pm=="dotted"?line.style_dotted:line.style_dashed, width=width)
+var tdo = line.new(na, na, na, na, xloc=xloc.bar_time, extend=extend=="none"?extend.none:extend=="right"?extend.right:extend.both, color=c_tdo, style=style_tdo=="solid"?line.style_solid:style_tdo=="dotted"?line.style_dotted:line.style_dashed, width=width)
+
+var l_dh = label.new(na, na, text="DH", xloc=xloc.bar_time, style=label.style_none, textcolor=c_d, size=size_d=="tiny"?size.tiny:size_d=="small"?size.small:size_d=="normal"?size.normal:size_d=="large"?size.large:size_d=="huge"?size.huge:size.auto)
+var l_dl = label.new(na, na, text="DL", xloc=xloc.bar_time, style=label.style_none, textcolor=c_d, size=size_d=="tiny"?size.tiny:size_d=="small"?size.small:size_d=="normal"?size.normal:size_d=="large"?size.large:size_d=="huge"?size.huge:size.auto)
+var l_pdh = label.new(na, na, text="PDH", xloc=xloc.bar_time, style=label.style_none, textcolor=c_pd, size=size_pd=="tiny"?size.tiny:size_pd=="small"?size.small:size_pd=="normal"?size.normal:size_pd=="large"?size.large:size_pd=="huge"?size.huge:size.auto)
+var l_pdl = label.new(na, na, text="PDL", xloc=xloc.bar_time, style=label.style_none, textcolor=c_pd, size=size_pd=="tiny"?size.tiny:size_pd=="small"?size.small:size_pd=="normal"?size.normal:size_pd=="large"?size.large:size_pd=="huge"?size.huge:size.auto)
+var l_pwh = label.new(na, na, text="PWH", xloc=xloc.bar_time, style=label.style_none, textcolor=c_pw, size=size_pw=="tiny"?size.tiny:size_pw=="small"?size.small:size_pw=="normal"?size.normal:size_pw=="large"?size.large:size_pw=="huge"?size.huge:size.auto)
+var l_pwl = label.new(na, na, text="PWL", xloc=xloc.bar_time, style=label.style_none, textcolor=c_pw, size=size_pw=="tiny"?size.tiny:size_pw=="small"?size.small:size_pw=="normal"?size.normal:size_pw=="large"?size.large:size_pw=="huge"?size.huge:size.auto)
+var l_pmh = label.new(na, na, text="PMH", xloc=xloc.bar_time, style=label.style_none, textcolor=c_pm, size=size_pm=="tiny"?size.tiny:size_pm=="small"?size.small:size_pm=="normal"?size.normal:size_pm=="large"?size.large:size_pm=="huge"?size.huge:size.auto)
+var l_pml = label.new(na, na, text="PML", xloc=xloc.bar_time, style=label.style_none, textcolor=c_pm, size=size_pm=="tiny"?size.tiny:size_pm=="small"?size.small:size_pm=="normal"?size.normal:size_pm=="large"?size.large:size_pm=="huge"?size.huge:size.auto)
+var l_tdo = label.new(na, na, text="TDO", xloc=xloc.bar_time, style=label.style_none, textcolor=c_tdo, size=size_tdo=="tiny"?size.tiny:size_tdo=="small"?size.small:size_tdo=="normal"?size.normal:size_tdo=="large"?size.large:size_tdo=="huge"?size.huge:size.auto)
+
+var float high_of_day = high // хай дня
+var float low_of_day = low // лой дня  
+var int time_of_hd = 1 // время хая дня
+var int time_of_ld = 1 // время лоя дня
+var float high_of_week = high // хай недели
+var float low_of_week = low // лой недели
+var int time_of_hw = 1 // время хая недели
+var int time_of_lw = 1 // время лоя недели
+var float high_of_month = high // хай месяца
+var float low_of_month = low // лой месяца
+var int time_of_hm = 1 // время хая месяца
+var int time_of_lm = 1 // время лоя месяца
+
+var all_lines = array.new_line(na)
+var all_labels = array.new_label(na)
+
+// доработать:
+//  tdo y 45m
+//  tdo x2 gmt>h_tdh
+
+
+var int tf = na// таймфрейм
+var int k = na// кол-во баров в дне
+if bar_index == 1
+	tf := time-time[1]
+	k := int(86400000/tf)
+
+if tf>=180000 and bar_index>=1// tf>=180000 чтобы не рисовать более чем на 500 баров вперед
+	if is_tdo and hour==h_tdo-gmt and hour[1]!=h_tdo-gmt and tf<=3600000
+		if histori
+			array.unshift(all_lines, line.copy(tdo))
+		line.set_xy1(tdo, time, open)
+		line.set_xy2(tdo, time+tf*k*(24-h_tdo+gmt)/24, open)
+		if labels_tdo
+			if histori
+				array.unshift(all_labels, label.copy(l_tdo))
+			label.set_xy(l_tdo, time+tf*k*(24-h_tdo-gmt)/24, open)
+	if timestamp(year, month, dayofmonth)>timestamp(year, month, dayofmonth)[1]
+		if is_d and tf<86400000
+			if histori
+				array.unshift(all_lines, line.copy(dh))
+				array.unshift(all_lines, line.copy(dl))
+			line.set_xy1(dh, time, high)
+			line.set_xy2(dh, time+tf*k, high)
+			line.set_xy1(dl, time, low)
+			line.set_xy2(dl, time+tf*k, low)
+			if labels_d
+				if histori
+					array.unshift(all_labels, label.copy(l_dh))
+					array.unshift(all_labels, label.copy(l_dl))
+				label.set_xy(l_dh, time+tf*k, high)
+				label.set_xy(l_dl, time+tf*k, low)
+		if tf<86400000
+			if is_pd
+				if histori
+					array.unshift(all_lines, line.copy(pdh))
+					array.unshift(all_lines, line.copy(pdl))
+				line.set_xy1(pdh, time_of_hd, high_of_day)
+				line.set_xy2(pdh, time+tf*k, high_of_day)
+				line.set_xy1(pdl, time_of_ld, low_of_day)
+				line.set_xy2(pdl, time+tf*k, low_of_day)
+				if labels_pd
+					if histori
+						array.unshift(all_labels, label.copy(l_pdh))
+						array.unshift(all_labels, label.copy(l_pdl))
+					label.set_xy(l_pdh, time+tf*k, high_of_day)
+					label.set_xy(l_pdl, time+tf*k, low_of_day)
+		high_of_day := high
+		low_of_day := low
+		time_of_hd := time
+		time_of_ld := time
+	if is_pw and dayofweek[1]>dayofweek and tf<86400000*7
+		if histori
+			array.unshift(all_lines, line.copy(pwh))
+			array.unshift(all_lines, line.copy(pwl))
+			if labels_pw
+				array.unshift(all_labels, label.copy(l_pwh))
+				array.unshift(all_labels, label.copy(l_pwl))
+		line.set_xy1(pwh, time_of_hw, high_of_week)
+		line.set_xy1(pwl, time_of_lw, low_of_week)
+		line.set_y2(pwh, high_of_week)
+		line.set_y2(pwl, low_of_week)
+		if tf>=86400000
+			line.set_xy2(pwh, time+86400000*7, high_of_week)
+			line.set_xy2(pwl, time+86400000*7, low_of_week)
+			if labels_pw
+				label.set_xy(l_pwh, time+86400000*7, high_of_week)
+				label.set_xy(l_pwl, time+86400000*7, low_of_week)
+		else
+			line.set_x2(pwh, time+tf*k)
+			line.set_x2(pwl, time+tf*k)
+			if labels_pw
+				label.set_xy(l_pwh, time+tf*k, high_of_week)
+				label.set_xy(l_pwl, time+tf*k, low_of_week)
+		high_of_week := high
+		low_of_week := low
+		time_of_hw := time
+		time_of_lw := time
+	if is_pw and tf<86400000 and timestamp(year, month, dayofmonth)>timestamp(year, month, dayofmonth)[1]
+		line.set_x2(pwh, time+tf*k)
+		line.set_x2(pwl, time+tf*k)
+		if labels_pw
+			label.set_x(l_pwh, time+tf*k)
+			label.set_x(l_pwl, time+tf*k)
+	if is_pm and dayofmonth[1]>dayofmonth
+		if histori
+			array.unshift(all_lines, line.copy(pmh))
+			array.unshift(all_lines, line.copy(pml))
+			if labels_pm
+				array.unshift(all_labels, label.copy(l_pmh))
+				array.unshift(all_labels, label.copy(l_pml))
+		line.set_xy1(pmh, time_of_hm, high_of_month)
+		line.set_xy1(pml, time_of_lm, low_of_month)
+		line.set_y2(pmh, high_of_month)
+		line.set_y2(pml, low_of_month)
+		if labels_pm
+			label.set_y(l_pmh, high_of_month)
+			label.set_y(l_pml, low_of_month)
+		if tf>=86400000*7
+			line.set_x2(pmh, time+tf*2)
+			line.set_x2(pml, time+tf*2)
+			if labels_pm
+				label.set_x(l_pmh, time+tf*2)
+				label.set_x(l_pml, time+tf*2)
+		else if tf>=86400000 and tf<86400000*7
+			line.set_x2(pmh, time+86400000*7)
+			line.set_x2(pml, time+86400000*7)
+			if labels_pm
+				label.set_x(l_pmh, time+86400000*7)
+				label.set_x(l_pml, time+86400000*7)
+		else
+			line.set_x2(pmh, time+k*tf)
+			line.set_x2(pml, time+k*tf)
+			if labels_pm
+				label.set_x(l_pmh, time+k*tf)
+				label.set_x(l_pml, time+k*tf)
+		high_of_month := high
+		low_of_month := low
+		time_of_hm := time
+		time_of_lm := time
+	if is_pm
+		if tf>=86400000 and tf<86400000*7 and dayofweek[1]>dayofweek
+			line.set_x2(pmh, time+86400000*7)
+			line.set_x2(pml, time+86400000*7)
+			if labels_pm
+				label.set_x(l_pmh, time+86400000*7)
+				label.set_x(l_pml, time+86400000*7)
+		else if tf<86400000 and timestamp(year, month, dayofmonth)>timestamp(year, month, dayofmonth)[1]
+			line.set_x2(pmh, time+k*tf)
+			line.set_x2(pml, time+k*tf)
+			if labels_pm
+				label.set_x(l_pmh, time+k*tf)
+				label.set_x(l_pml, time+k*tf)
+	if high>high_of_day
+		high_of_day := high
+		time_of_hd := time
+		if is_d and tf<86400000
+			line.set_xy1(dh, time, high)
+			line.set_y2(dh, high)
+			if labels_d
+				label.set_y(l_dh, high)
+	if high>high_of_week
+		high_of_week := high
+		time_of_hw := time
+	if high>high_of_month
+		high_of_month := high
+		time_of_hm := time
+	if low<low_of_day
+		low_of_day := low
+		time_of_ld := time
+		if is_d and tf<=86400000
+			line.set_xy1(dl, time, low)
+			line.set_y2(dl, low)
+			if labels_d
+				label.set_y(l_dl, low)
+	if low<low_of_week
+		low_of_week := low
+		time_of_lw := time
+	if low<low_of_month
+		low_of_month := low
+		time_of_lm := time
+
+

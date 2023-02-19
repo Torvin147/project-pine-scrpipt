@@ -1,0 +1,399 @@
+//@version=5
+indicator(title="Fair Value Gap", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=500)
+// version 201
+
+
+var is_current_period = input.bool(defval=true, title="", inline="fvg0", group="FVG")
+var current_period_color = input.color(defval=color.black, title="", inline="fvg0", group="FVG")
+var current_period_style = input.string(defval="solid", title="", options=["solid", "dotted", "dashed"], inline="fvg0", group="FVG")
+
+var is_labels = input.bool(defval=false, title="", inline="label", group="labels")
+var labels_size = input.string(defval="small", title="", options=["auto", "tiny", "small", "normal", "large", "huge"], inline="label", group="labels")
+var labels_place_x = input.string(defval="right", title="", options=["right", "center", "left"], inline="label", group="labels")
+var labels_place_y = input.string(defval="top", title="", options=["top" , "center", "bottom"], inline="label", group="labels")
+var labels_color = input.color(defval=color.black, title="", tooltip="coordinates(x and y) only for indicator style = repaint", inline="label", group="labels")
+
+var is_mitigated = input.bool(defval=false, title="", tooltip="отвечает за перкраску в repaint и boxes", inline="mitigated", group="mitigated line")
+var mitigated_style = input.string(defval="solid", title="", options=["solid", "dotted", "dashed"],inline="mitigated", group="mitigated line")
+var mitigated_color = input.color(defval=color.black, title="", inline="mitigated", group="mitigated line")
+
+var is_fibo = input.bool(defval=false, title="", inline="fibo", group="0.5 line")
+var fibo_style = input.string(defval="solid", title="", options=["solid", "dotted", "dashed"], inline="fibo", group="0.5 line")
+var fibo_color = input.color(defval=color.black, title="", inline="fibo", group="0.5 line")
+
+var is_delete_mitigated = input.bool(defval=false, title="delete mitigated", inline="sub", group="generals")
+var indicator_style = input.string(defval="lines", title="indicator style", options=["lines", "boxes", "repaint"], group="generals")
+var extend = input.string(defval="to mitigated", title="extend", options=["right", "none", "to mitigated"], group="generals")
+
+var width = input.int(defval=1, title="width", minval=0, group="other")
+
+
+var bull_higher_limit = array.new_float(na)     // верхняя граница бычих fvg
+var bull_lower_limit = array.new_float(na)      // нижняя граница бычих fvg
+var bull_mitigated_level = array.new_float(na)  // цена до которой бычий имбаланс перекрыт
+var bull_higher_limit_line = array.new_line(na) // линия верхней граници бычих fvg
+var bull_lower_limit_line = array.new_line(na)  // линиия нижней границы бычих fvg
+var bull_labels = array.new_label(na)           // лейблы(доля перекрытого) бычих fvg
+var bull_mitigated = array.new_line(na)         // линия, которая показывает уровень перекрытия бычих fvg
+var bull_fibo = array.new_line(na)              // линия, которая показывает 0.5 бычих fvg
+var bull_boxes = array.new_box(na)              // основной бокс(для boxes, уменьшаемый в repaint) бычих fvg
+var bull_repaint_boxes = array.new_box(na)      // бокс для repaint, показывающий перекрытую область бычих fvg
+
+var bear_higher_limit = array.new_float(na)     // верхняя граница медвежьих fvg
+var bear_lower_limit = array.new_float(na)      // нижняя граница медвежьих fvg
+var bear_mitigated_level = array.new_float(na)  // цена до которой медвежий имбаланс перекрыт
+var bear_higher_limit_line = array.new_line(na) // линия верхней граници медвежьих fvg
+var bear_lower_limit_line = array.new_line(na)  // линиия нижней границы медвежьих fvg
+var bear_labels = array.new_label(na)           // лейблы(доля перекрытого) медвежьих fvg
+var bear_mitigated = array.new_line(na)         // линия, которая показывает уровень перекрытия медвежьих fvg
+var bear_fibo = array.new_line(na)              // линия, которая показывает 0.5 медвежьих fvg
+var bear_boxes = array.new_box(na)              // основной бокс(для boxes, уменьшаемый в repaint) медвежьих fvg
+var bear_repaint_boxes = array.new_box(na)      // бокс для repaint, показывающий перекрытую область медвежьих fvg
+
+
+
+
+
+if barstate.isfirst
+    current_period_style := current_period_style=="solid"?line.style_solid:current_period_style=="dotted"?line.style_dotted:line.style_dashed
+    labels_size := labels_size=="auto"?size.auto:labels_size=="tiny"?size.tiny:labels_size=="small"?size.small:labels_size=="normal"?size.normal:labels_size=="large"?size.large:size.huge
+    mitigated_style := mitigated_style=="solid"?line.style_solid:mitigated_style=="dotted"?line.style_dotted:line.style_dashed
+    fibo_style := fibo_style=="solid"?line.style_solid:fibo_style=="dotted"?line.style_dotted:line.style_dashed
+    
+
+
+// дополнительные линии(fibo, mitigated) и лейблы доступны только в режимах lines и repaint
+// repaint color - mitigated_color, box color - current_period_color
+if is_current_period
+    if close[1] > open[1] and high[2] < low
+        array.unshift(bull_higher_limit, low)
+        array.unshift(bull_lower_limit, high[2])
+        array.unshift(bull_mitigated_level, low)
+        if indicator_style == "lines"
+            array.unshift(bull_higher_limit_line, line.new(bar_index, low,
+                                                           bar_index + 1, low, 
+                                                           extend=extend=="right"?extend.right:extend.none, 
+                                                           color=current_period_color, style=current_period_style, width=width
+                                                           ))
+            array.unshift(bull_lower_limit_line, line.new(bar_index - 2, high[2],
+                                                          bar_index + 1, high[2], 
+                                                          extend=extend=="right"?extend.right:extend.none, 
+                                                          color=current_period_color, style=current_period_style, width=width
+                                                          ))
+            if is_labels
+                array.unshift(bull_labels, label.new(bar_index + 1, low,
+                                                     text="", style=label.style_none,
+                                                     textcolor=labels_color, size=labels_size
+                                                     ))
+            if is_fibo
+                array.unshift(bull_fibo, line.new(bar_index - 1, low - (low - high[2]) / 2,
+                                             bar_index + 1, low - (low - high[2]) / 2,
+                                             extend=extend=="right"?extend.right:extend.none, 
+                                             color=fibo_color, style=fibo_style, width=width
+                                             ))
+            if is_mitigated
+                array.unshift(bull_mitigated, line.new(bar_index - 1, low,
+                                                       bar_index + 1, low, 
+                                                       extend=extend=="right"?extend.right:extend.none, 
+                                                       color=na, style=mitigated_style, width=width
+                                                       ))
+        else 
+            // основновной бокс для boxes и repaint
+            array.unshift(bull_boxes, box.new(bar_index - 2, low,
+                                              bar_index, high[2],
+                                              border_color=current_period_color, border_width=width, border_style=current_period_style,
+                                              extend=extend=="right"?extend.right:extend.none,
+                                              bgcolor=current_period_color, text="", text_size=labels_size,
+                                              text_color=labels_color
+                                              ))
+            if indicator_style == "repaint"
+                array.unshift(bull_repaint_boxes, box.new(bar_index - 2, low,
+                                                          bar_index, low,
+                                                          border_color=na, border_width=width, border_style=mitigated_style,
+                                                          extend=extend=="right"?extend.right:extend.none,
+                                                          bgcolor=mitigated_color, text="", text_size=labels_size,
+                                                          text_color=labels_color,
+                                                          text_halign=labels_place_x=="right"?text.align_right:labels_place_x=="left"?text.align_left:text.align_center,
+                                                          text_valign=labels_place_y=="top"?text.align_top:labels_place_y=="bottom"?text.align_bottom:text.align_center
+                                                          ))
+                if is_fibo
+                    array.unshift(bull_fibo, line.new(bar_index - 2, low - (low - high[2]) / 2, 
+                                                      bar_index, low - (low - high[2]) / 2,
+                                                      extend=extend=="right"?extend.right:extend.none, 
+                                                      color=fibo_color, style=fibo_style, width=width
+                                                      ))
+    else if close[1] < open[1] and high < low[2]
+        array.unshift(bear_higher_limit, low[2])
+        array.unshift(bear_lower_limit, high)
+        array.unshift(bear_mitigated_level, high)
+        if indicator_style == "lines"
+            array.unshift(bear_higher_limit_line, line.new(bar_index - 2, low[2], 
+                                                           bar_index + 1, low[2],
+                                                           extend=extend=="right"?extend.right:extend.none, 
+                                                           color=current_period_color, style=current_period_style, width=width
+                                                           ))
+            array.unshift(bear_lower_limit_line, line.new(bar_index, high,
+                                                          bar_index + 1, high,
+                                                          extend=extend=="right"?extend.right:extend.none, 
+                                                          color=current_period_color, style=current_period_style, width=width
+                                                          ))
+            if is_labels
+                array.unshift(bear_labels, label.new(bar_index + 1, high,
+                                                     text="", style=label.style_none,
+                                                     textcolor=labels_color, size=labels_size
+                                                     ))
+            if is_fibo
+                array.unshift(bear_fibo, line.new(bar_index - 1, low[2] - (low[2] - high) / 2,
+                                                  bar_index + 1, low[2] - (low[2] - high) / 2,
+                                                  extend=extend=="right"?extend.right:extend.none, 
+                                                  color=fibo_color, style=fibo_style, width=width
+                                                  ))
+            if is_mitigated
+                array.unshift(bear_mitigated, line.new(bar_index - 1, high,
+                                                       bar_index + 1, high, 
+                                                       extend=extend=="right"?extend.right:extend.none, 
+                                                       color=na, style=mitigated_style, width=width
+                                                       ))
+        else 
+            // основновной бокс для boxes и repaint
+            array.unshift(bear_boxes, box.new(bar_index - 2, low[2],
+                                              bar_index, high,
+                                              border_color=current_period_color, border_width=width, border_style=current_period_style,
+                                              extend=extend=="right"?extend.right:extend.none,
+                                              bgcolor=current_period_color, text="", text_size=labels_size,
+                                              text_color=labels_color
+                                              ))
+            if indicator_style == "repaint"
+                array.unshift(bear_repaint_boxes, box.new(bar_index - 2, high,
+                                                          bar_index, high,
+                                                          border_color=na, border_width=width, border_style=mitigated_style,
+                                                          extend=extend=="right"?extend.right:extend.none,
+                                                          bgcolor=mitigated_color, text="", text_size=labels_size,
+                                                          text_color=labels_color,
+                                                          text_halign=labels_place_x=="right"?text.align_right:labels_place_x=="left"?text.align_left:text.align_center,
+                                                          text_valign=labels_place_y=="top"?text.align_top:labels_place_y=="bottom"?text.align_bottom:text.align_center
+                                                          ))
+                if is_fibo
+                    array.unshift(bear_fibo, line.new(bar_index - 2, low[2] - (low[2] - high) / 2, 
+                                                      bar_index, low[2] - (low[2] - high) / 2,
+                                                      extend=extend=="right"?extend.right:extend.none, 
+                                                      color=fibo_color, style=fibo_style, width=width
+                                                      ))
+
+
+
+
+bull_ind = 0 // индекс для бычьих массвивов
+bear_ind = 0 // индекс для медвежьих массвивов
+
+// текст находится в repaint boxes
+// у mitigated line color = na и repaint_boxes border_color = na, их нужно изменить на mitigated_color
+if  is_mitigated and is_current_period
+    while bull_ind < array.size(bull_higher_limit)
+        if bull_ind >= array.size(bull_higher_limit)
+            break
+        if low < array.get(bull_mitigated_level, bull_ind) and low > array.get(bull_lower_limit, bull_ind)
+            array.set(bull_mitigated_level, bull_ind, low)
+            if indicator_style == "lines"
+                if is_mitigated
+                    line.set_y1(array.get(bull_mitigated, bull_ind), low)
+                    line.set_y2(array.get(bull_mitigated, bull_ind), low)
+                    line.set_color(array.get(bull_mitigated, bull_ind), mitigated_color)
+                if is_labels
+                    label.set_y(array.get(bull_labels, bull_ind), low)
+                    label.set_text(array.get(bull_labels, bull_ind), str.tostring(math.round((array.get(bull_higher_limit, bull_ind) - low) / (array.get(bull_higher_limit, bull_ind) - array.get(bull_lower_limit, bull_ind)), 2)))
+                if extend=="to mitigated"
+                    line.set_x2(array.get(bull_higher_limit_line, bull_ind), bar_index)
+                    line.set_x2(array.get(bull_lower_limit_line, bull_ind), bar_index)
+                    if is_labels
+                        label.set_x(array.get(bull_labels, bull_ind), bar_index - 1)
+                    if is_fibo
+                        line.set_x2(array.get(bull_fibo, bull_ind), bar_index)
+                    if is_mitigated
+                        line.set_x2(array.get(bull_mitigated, bull_ind), bar_index)
+            else
+                box.set_top(array.get(bull_boxes, bull_ind), low)
+                if extend=="to mitigated"
+                    box.set_right(array.get(bull_boxes, bull_ind), bar_index)
+                if indicator_style == "repaint"
+                    box.set_bottom(array.get(bull_repaint_boxes, bull_ind), low)
+                    box.set_bgcolor(array.get(bull_repaint_boxes, bull_ind), mitigated_color)
+                    if is_labels
+                        box.set_text(array.get(bull_repaint_boxes, bull_ind), str.tostring(math.round((array.get(bull_higher_limit, bull_ind) - low) / (array.get(bull_higher_limit, bull_ind) - array.get(bull_lower_limit, bull_ind)), 2)))
+                    if extend=="to mitigated"
+                        box.set_right(array.get(bull_repaint_boxes, bull_ind), bar_index)
+                        if is_fibo
+                            line.set_x2(array.get(bull_fibo, bull_ind), bar_index)
+            bull_ind += 1
+        else if low <= array.get(bull_lower_limit, bull_ind)
+            if is_delete_mitigated
+                if indicator_style == "lines"
+                    line.delete(array.get(bull_higher_limit_line, bull_ind))
+                    line.delete(array.get(bull_lower_limit_line, bull_ind))
+                    if is_labels
+                        label.delete(array.get(bull_labels, bull_ind))
+                    if is_mitigated
+                        line.delete(array.get(bull_mitigated, bull_ind))
+                    if is_fibo
+                        line.delete(array.get(bull_fibo, bull_ind))
+                else
+                    box.delete(array.get(bull_boxes, bull_ind))
+                    if indicator_style == "repaint"
+                        box.delete(array.get(bull_repaint_boxes, bull_ind))
+                        if is_fibo
+                            line.delete(array.get(bull_fibo, bull_ind))
+            else
+                if indicator_style == "lines"
+                    if is_mitigated
+                        line.set_y1(array.get(bull_mitigated, bull_ind), array.get(bull_lower_limit, bull_ind))
+                        line.set_y2(array.get(bull_mitigated, bull_ind), array.get(bull_lower_limit, bull_ind))
+                        line.set_color(array.get(bull_mitigated, bull_ind), mitigated_color)
+                    if is_labels
+                        label.set_y(array.get(bull_labels, bull_ind), array.get(bull_lower_limit, bull_ind))
+                        label.set_text(array.get(bull_labels, bull_ind), "ff")
+                    if extend=="to mitigated"
+                        line.set_x2(array.get(bull_higher_limit_line, bull_ind), bar_index)
+                        line.set_x2(array.get(bull_lower_limit_line, bull_ind), bar_index)
+                        if is_labels
+                            label.set_x(array.get(bull_labels, bull_ind), bar_index - 1)
+                        if is_fibo
+                            line.set_x2(array.get(bull_fibo, bull_ind), bar_index)
+                        if is_mitigated
+                            line.set_x2(array.get(bull_mitigated, bull_ind), bar_index)
+                else
+                    box.delete(array.get(bull_boxes, bull_ind))
+                    if indicator_style == "repaint"
+                        box.set_bottom(array.get(bull_repaint_boxes, bull_ind), array.get(bull_lower_limit, bull_ind))
+                        if is_labels
+                            box.set_text(array.get(bull_repaint_boxes, bull_ind), "ff")
+                        if extend=="to mitigated"
+                            box.set_right(array.get(bull_repaint_boxes, bull_ind), bar_index)
+                            if is_fibo
+                                line.set_x2(array.get(bull_fibo, bull_ind), bar_index)
+            if indicator_style == "lines"
+                array.remove(bull_higher_limit_line, bull_ind)
+                array.remove(bull_lower_limit_line, bull_ind)
+                if is_labels
+                    array.remove(bull_labels, bull_ind)
+                if is_fibo
+                    array.remove(bull_fibo, bull_ind)
+                if is_mitigated
+                    array.remove(bull_mitigated, bull_ind)
+            else
+                array.remove(bull_boxes, bull_ind)
+                if indicator_style == "repaint"
+                    array.remove(bull_repaint_boxes, bull_ind)
+                    if is_fibo 
+                        array.remove(bull_fibo, bull_ind)
+
+            array.remove(bull_higher_limit, bull_ind)
+            array.remove(bull_lower_limit, bull_ind)
+            array.remove(bull_mitigated_level, bull_ind)
+        else
+            bull_ind += 1
+
+
+    while bear_ind < array.size(bear_lower_limit)
+        if bear_ind >= array.size(bear_lower_limit)
+            break
+        if high > array.get(bear_mitigated_level, bear_ind) and high < array.get(bear_higher_limit, bear_ind)
+            array.set(bear_mitigated_level, bear_ind, high)
+            if indicator_style == "lines"
+                if is_mitigated
+                    line.set_y1(array.get(bear_mitigated, bear_ind), high)
+                    line.set_y2(array.get(bear_mitigated, bear_ind), high)
+                    line.set_color(array.get(bear_mitigated, bear_ind), mitigated_color)
+                if is_labels
+                    label.set_y(array.get(bear_labels, bear_ind), high)
+                    label.set_text(array.get(bear_labels, bear_ind), str.tostring(math.round((high - array.get(bear_lower_limit, bear_ind)) / (array.get(bear_higher_limit, bear_ind) - array.get(bear_lower_limit, bear_ind)), 2)))
+                if extend == "to mitigated"
+                    line.set_x2(array.get(bear_higher_limit_line, bear_ind), bar_index)
+                    line.set_x2(array.get(bear_lower_limit_line, bear_ind), bar_index)
+                    if is_labels
+                        label.set_x(array.get(bear_labels, bear_ind), bar_index - 1)
+                    if is_fibo
+                        line.set_x2(array.get(bear_fibo, bear_ind), bar_index)
+                    if is_mitigated
+                        line.set_x2(array.get(bear_mitigated, bear_ind), bar_index)
+            else
+                box.set_bottom(array.get(bear_boxes, bear_ind), high)
+                if extend == "to mitigated"
+                    box.set_right(array.get(bear_boxes, bear_ind), bar_index)
+                if indicator_style == "repaint"
+                    box.set_top(array.get(bear_repaint_boxes, bear_ind), high)
+                    box.set_bgcolor(array.get(bear_repaint_boxes, bear_ind), mitigated_color)
+                    if is_labels
+                        box.set_text(array.get(bear_repaint_boxes, bear_ind), str.tostring(math.round((high - array.get(bear_lower_limit, bear_ind)) / (array.get(bear_higher_limit, bear_ind) - array.get(bear_lower_limit, bear_ind)), 2)))
+                    if extend == "to mitigated"
+                        box.set_right(array.get(bear_repaint_boxes, bear_ind), bar_index)
+                        if is_fibo
+                            line.set_x2(array.get(bear_fibo, bear_ind), bar_index)
+            bear_ind += 1
+        else if high >= array.get(bear_higher_limit, bear_ind)
+            if is_delete_mitigated
+                if indicator_style == "lines"
+                    line.delete(array.get(bear_higher_limit_line, bear_ind))
+                    line.delete(array.get(bear_lower_limit_line, bear_ind))
+                    if is_labels
+                        label.delete(array.get(bear_labels, bear_ind))
+                    if is_mitigated
+                        line.delete(array.get(bear_mitigated, bear_ind))
+                    if is_fibo
+                        line.delete(array.get(bear_fibo, bear_ind))
+                else
+                    box.delete(array.get(bear_boxes, bear_ind))
+                    if indicator_style == "repaint"
+                        box.delete(array.get(bear_repaint_boxes, bear_ind))
+                        if is_fibo
+                            line.delete(array.get(bear_fibo, bear_ind))
+            else
+                if indicator_style == "lines"
+                    if is_mitigated
+                        line.set_y1(array.get(bear_mitigated, bear_ind), array.get(bear_higher_limit, bear_ind))
+                        line.set_y2(array.get(bear_mitigated, bear_ind), array.get(bear_higher_limit, bear_ind))
+                        line.set_color(array.get(bear_mitigated, bear_ind), mitigated_color)
+                    if is_labels
+                        label.set_y(array.get(bear_labels, bear_ind), array.get(bear_higher_limit, bear_ind))
+                        label.set_text(array.get(bear_labels, bear_ind), "ff")
+                    if extend == "to mitigated"
+                        line.set_x2(array.get(bear_higher_limit_line, bear_ind), bar_index)
+                        line.set_x2(array.get(bear_lower_limit_line, bear_ind), bar_index)
+                        if is_labels
+                            label.set_x(array.get(bear_labels, bear_ind), bar_index - 1)
+                        if is_fibo
+                            line.set_x2(array.get(bear_fibo, bear_ind), bar_index)
+                        if is_mitigated
+                            line.set_x2(array.get(bear_mitigated, bear_ind), bar_index)
+                else
+                    box.delete(array.get(bear_boxes, bear_ind))
+                    if indicator_style == "repaint"
+                        box.set_top(array.get(bear_repaint_boxes, bear_ind), array.get(bear_higher_limit, bear_ind))
+                        if is_labels
+                            box.set_text(array.get(bear_repaint_boxes, bear_ind), "ff")
+                        if extend == "to mitigated"
+                            box.set_right(array.get(bear_repaint_boxes, bear_ind),bar_index)
+                            if is_fibo
+                                line.set_x2(array.get(bear_fibo, bear_ind), bar_index)
+            if indicator_style == "lines"
+                array.remove(bear_higher_limit_line, bear_ind)
+                array.remove(bear_lower_limit_line, bear_ind)
+                if is_labels
+                    array.remove(bear_labels, bear_ind)
+                if is_fibo
+                    array.remove(bear_fibo, bear_ind)
+                if is_mitigated
+                    array.remove(bear_mitigated, bear_ind)
+            else
+                array.remove(bear_boxes, bear_ind)
+                if indicator_style == "repaint"
+                    array.remove(bear_repaint_boxes, bear_ind)
+                    if is_fibo 
+                        array.remove(bear_fibo, bear_ind)
+
+            array.remove(bear_higher_limit, bear_ind)
+            array.remove(bear_lower_limit, bear_ind)
+            array.remove(bear_mitigated_level, bear_ind)
+        else
+            bear_ind += 1
+
+
